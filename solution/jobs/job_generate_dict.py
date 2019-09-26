@@ -22,7 +22,6 @@ config.read(path_config)
 PATH_DOCS = config['DOC']['PATH_DOCS']
 PATH_DICT = config['DOC']['PATH_DICT']
 FORMAT_STORAGE = config['DOC']['FORMAT_STORAGE']
-SPARK_CONFIG = config['SPARK']['SPARK_CONFIG']
 LOG_FILE = config['LOG']['LOG_FILE']
 LOG_FILEMODE = config['LOG']['FILEMODE']
 
@@ -45,7 +44,6 @@ class JobGenerateDict(object):
     def __init__(self, path_files: str):
         self.__spark = SparkSession \
             .builder \
-            .config(SPARK_CONFIG) \
             .getOrCreate()
 
         self.__spark.sparkContext.setLogLevel("WARN")
@@ -115,7 +113,6 @@ class JobGenerateDict(object):
 
         :Return:
             dataframe
-
         """
         remove_list_format = udf(lambda x: ",".join(x))
 
@@ -128,7 +125,7 @@ class JobGenerateDict(object):
 
         return self
 
-    def storage_data(self, path_to_storage: str, format: str, mode: str):
+    def storage_data(self, path_to_storage: str, mode: str):
         """Persist word dict
         :Args:
             :param path_to_storage: the path
@@ -137,9 +134,8 @@ class JobGenerateDict(object):
         :Returns:
             :return: a word dict storage
         """
-        self.__df.write.save(path=path_to_storage,
-                             format=format,
-                             mode=mode)
+        self.__df.write.parquet(path=path_to_storage,
+                                mode=mode)
         return self.__df.show(truncate=False)
 
 
@@ -149,7 +145,6 @@ def main():
         .generate_df_words(column_words='value') \
         .generate_dict(column_key='key', column_words='value') \
         .storage_data(path_to_storage=PATH_DICT,
-                      format=FORMAT_STORAGE,
                       mode='overwrite')
 
 

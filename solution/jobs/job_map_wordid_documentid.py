@@ -24,8 +24,6 @@ PATH_DOCS = config['DOC']['PATH_DOCS']
 PATH_DICT = config['DOC']['PATH_DICT']
 PATH_INDEX = config['DOC']['PATH_INDEX']
 
-FORMAT_STORAGE = config['DOC']['FORMAT_STORAGE']
-SPARK_CONFIG = config['SPARK']['SPARK_CONFIG']
 LOG_FILE = config['LOG']['LOG_FILE']
 LOG_FILEMODE = config['LOG']['FILEMODE']
 
@@ -46,28 +44,25 @@ logging.warning(f'Start job: {start}')
 class JobMapWordIdDocumentId(object):
 
     def __init__(self, path_files: str, path_index: str, path_dict:
-                 str, file_name: str, format_dict: str, spark_config: str):
+                 str, file_name: str):
         path = ''.join(path_files + file_name)
         self.__file_name = file_name
 
         self.__spark = SparkSession \
             .builder \
-            .config(spark_config) \
             .getOrCreate()
 
         self.__df_dict = self.__spark \
             .read \
-            .format(format_dict) \
-            .load(path_dict).coalesce(1)
+            .parquet(path_dict).repartition(numPartitions=1)
 
         self.__df_doc = self.__spark \
             .read \
-            .text(path).repartition(10)
+            .text(path).rdd.persist().toDF()
 
         self.__df_wordid_docid = self.__spark \
             .read \
-            .format(format_dict) \
-            .load(path_index).repartition(10)
+            .parquet(path_index).rdd.persist().toDF()
 
         self.__spark.sparkContext.setLogLevel("warn")
         logging.warning(f"Working in the doc: {path}")
@@ -137,10 +132,9 @@ class JobMapWordIdDocumentId(object):
         """
         self.__df_doc = self.__df_doc \
             .join(self.__df_dict,
-                                on=self.__df_doc[col_words_dict]
-                                    ==
-                                    self.__df_dict[col_words],
-                                how=join_operation) \
+                  on=self.__df_doc[col_words_dict]
+                  == self.__df_dict[col_words],
+                  how=join_operation) \
             .drop(col_words) \
             .drop(col_words_dict)
 
@@ -175,7 +169,7 @@ class JobMapWordIdDocumentId(object):
         return self
 
     def prepare_df(self, name_original_col: str,
-                   new_name_key: str, new_name_doc: str):
+                  new_name_key: str, new_name_doc: str):
         """
         :param join_col:
         Returns:
@@ -216,7 +210,7 @@ class JobMapWordIdDocumentId(object):
 
         return self
 
-    def storage_data(self, path_to_storage: str, format: str, mode: str):
+    def storage_data(self, path_to_storage: str, mode: str):
         """Persist word dict
         :Args:
             :param path_to_storage: the path
@@ -228,9 +222,8 @@ class JobMapWordIdDocumentId(object):
         self.__df_wordid_docid.show()
         print(self.__df_wordid_docid.count())
 
-        return self.__df_wordid_docid.write.save(path=path_to_storage,
-                                                 format=format,
-                                                 mode=mode)
+        return self.__df_wordid_docid.write.parquet(path=path_to_storage,
+                                                    mode=mode)
 
 
 def main():
@@ -239,19 +232,15 @@ def main():
     df_index = spark.createDataFrame(data=[('0', '0')],
                                      schema=('doc_id', 'word_id'))
 
-    df_index.write.save(path=PATH_INDEX,
-                        format=FORMAT_STORAGE,
-                        mode='append')
+    df_index.write.parquet(path=PATH_INDEX, mode='append')
 
     list_docs = os.listdir(PATH_DOCS)
 
     for doc in list_docs:
         JobMapWordIdDocumentId(path_files=PATH_DOCS,
                                file_name=doc,
-                               format_dict=FORMAT_STORAGE,
                                path_dict=PATH_DICT,
-                               path_index=PATH_INDEX,
-                               spark_config=SPARK_CONFIG) \
+                               path_index=PATH_INDEX) \
             .clean_data(column='value') \
             .generate_word_by_row(col_words='value') \
             .get_word_id(col_words='value',
@@ -263,7 +252,6 @@ def main():
                         new_name_key='word_id') \
             .append_df() \
             .storage_data(path_to_storage=PATH_INDEX,
-                          format=FORMAT_STORAGE,
                           mode='append')
 
 
