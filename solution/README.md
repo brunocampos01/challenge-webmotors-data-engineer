@@ -22,49 +22,8 @@ Challenge for Data Engineering at [webmotors](https://www.webmotors.com.br/).
 ├── dataset
 │   ├── 0
 │   ├── 1
-│   ├── 10
-│   ├── 11
-│   ├── 12
-│   ├── 13
-│   ├── 14
-│   ├── 15
-│   ├── 16
-│   ├── 17
-│   ├── 18
-│   ├── 19
-│   ├── 2
-│   ├── 20
-│   ├── 21
-│   ├── 22
-│   ├── 23
-│   ├── 24
-│   ├── 25
-│   ├── 26
-│   ├── 27
-│   ├── 28
-│   ├── 29
-│   ├── 3
-│   ├── 30
-│   ├── 31
-│   ├── 32
-│   ├── 33
-│   ├── 34
-│   ├── 35
-│   ├── 36
-│   ├── 37
-│   ├── 38
-│   ├── 39
-│   ├── 4
-│   ├── 40
-│   ├── 41
-│   ├── 42
-│   ├── 43
+│   ├── ...
 │   ├── 44
-│   ├── 5
-│   ├── 6
-│   ├── 7
-│   ├── 8
-│   └── 9
 ├── images
 │   ├── figura_1.png
 │   ├── figura_2.png
@@ -103,8 +62,8 @@ cd challenge-webmotors-data-engineer
 ```
 
 2. Choose which environment to running
- - [local](solution/environment/README.md)
- - [virtual environment](solution/environment/README.md)
+ - [local](environment/README.md)
+ - [virtual environment](environment/README.md)
 
 3. In terminal running command `spark-submit parte_lide_defere_gratuidade` and `spark-submit solution/jobs/job_map_wordid_documentid.py`
 
