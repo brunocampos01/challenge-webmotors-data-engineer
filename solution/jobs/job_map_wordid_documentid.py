@@ -7,7 +7,6 @@ import pyspark
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col
 from pyspark.sql.functions import explode
-from pyspark.sql.functions import lit
 from pyspark.sql.functions import lower
 from pyspark.sql.functions import regexp_replace
 from pyspark.sql.functions import split
@@ -44,7 +43,7 @@ end = datetime.now()
 logging.warning(f'Start job: {start}')
 
 
-class JobGenerateDict(object):
+class JobMapWordIdDocumentId(object):
 
     def __init__(self, path_files: str, path_index: str, path_dict:
                  str, file_name: str, format_dict: str, spark_config: str):
@@ -175,7 +174,7 @@ class JobGenerateDict(object):
 
         return self
 
-    def prepare_df(self, union_col: str, name_original_col: str,
+    def prepare_df(self, name_original_col: str,
                    new_name_key: str, new_name_doc: str):
         """
         :param join_col:
@@ -247,20 +246,19 @@ def main():
     list_docs = os.listdir(PATH_DOCS)
 
     for doc in list_docs:
-        JobGenerateDict(path_files=PATH_DOCS,
-                        file_name=doc,
-                        format_dict=FORMAT_STORAGE,
-                        path_dict=PATH_DICT,
-                        path_index=PATH_INDEX,
-                        spark_config=SPARK_CONFIG) \
+        JobMapWordIdDocumentId(path_files=PATH_DOCS,
+                               file_name=doc,
+                               format_dict=FORMAT_STORAGE,
+                               path_dict=PATH_DICT,
+                               path_index=PATH_INDEX,
+                               spark_config=SPARK_CONFIG) \
             .clean_data(column='value') \
             .generate_word_by_row(col_words='value') \
             .get_word_id(col_words='value',
                          join_operation='right',
                          col_words_dict='col') \
             .generate_wordid_docid(col_word_key='key') \
-            .prepare_df(union_col='union_col',
-                        name_original_col='_2',
+            .prepare_df(name_original_col='_2',
                         new_name_doc='doc_id',
                         new_name_key='word_id') \
             .append_df() \

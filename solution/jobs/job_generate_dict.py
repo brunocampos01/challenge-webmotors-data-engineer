@@ -1,19 +1,18 @@
-from datetime import datetime
-import os
 import configparser
-
 import logging
+import os
+from datetime import datetime
 
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import udf
 from pyspark.sql.functions import col
 from pyspark.sql.functions import explode
 from pyspark.sql.functions import lower
 from pyspark.sql.functions import regexp_replace
 from pyspark.sql.functions import split
 from pyspark.sql.functions import trim
+from pyspark.sql.functions import udf
 
-
+# config
 path_directory = os.path.dirname(os.path.abspath(__file__))
 path_config = ''.join(path_directory + '/../configs/etl_config.ini')
 
