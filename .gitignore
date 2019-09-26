@@ -589,7 +589,7 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-tmp/dict/
-tmp/index/
+solution/tmp/dict/
+solution/tmp/index/
 .idea/
 .vscode/
