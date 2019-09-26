@@ -14,6 +14,8 @@ from pyspark.sql.functions import trim
 from pyspark.sql.types import StringType
 
 # config
+from pyspark.storagelevel import StorageLevel
+
 path_directory = os.path.dirname(os.path.abspath(__file__))
 path_config = ''.join(path_directory + '/../configs/etl_config.ini')
 
@@ -62,7 +64,7 @@ class JobMapWordIdDocumentId(object):
 
         self.__df_wordid_docid = self.__spark \
             .read \
-            .parquet(path_index).rdd.persist().toDF()
+            .parquet(path_index).rdd.persist(storageLevel=StorageLevel.DISK_ONLY).toDF()
 
         self.__spark.sparkContext.setLogLevel("warn")
         logging.warning(f"Working in the doc: {path}")
