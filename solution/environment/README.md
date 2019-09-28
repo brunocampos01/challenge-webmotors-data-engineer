@@ -27,6 +27,7 @@ make clean
 - Install the libraries
 
 ```shell script
+pip3 install virtualenv_requirements.txt
 pip3 install -r requirements.txt            # libs necessary in notebooks
 ```
 

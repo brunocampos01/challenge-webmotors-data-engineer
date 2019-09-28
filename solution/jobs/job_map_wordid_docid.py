@@ -1,7 +1,7 @@
 import configparser
 import logging
 import os
-from datetime import datetime
+import time
 
 import pyspark
 from pyspark.sql import SparkSession
@@ -12,10 +12,9 @@ from pyspark.sql.functions import regexp_replace
 from pyspark.sql.functions import split
 from pyspark.sql.functions import trim
 from pyspark.sql.types import StringType
-
-# config
 from pyspark.storagelevel import StorageLevel
 
+# config
 path_directory = os.path.dirname(os.path.abspath(__file__))
 path_config = ''.join(path_directory + '/../configs/etl_config.ini')
 
@@ -38,15 +37,15 @@ logging.basicConfig(filename=LOG_FILE,
                     format=format,
                     datefmt=date_format)
 
-start = datetime.now()
-end = datetime.now()
+start = time.time()
+end = time.time()
 logging.warning(f'Start job: {start}')
 
 
 class JobMapWordIdDocumentId(object):
 
     def __init__(self, path_files: str, path_index: str, path_dict:
-                 str, file_name: str):
+                 str, file_name: str, num_partition: int):
         path = ''.join(path_files + file_name)
         self.__file_name = file_name
 
@@ -56,18 +55,28 @@ class JobMapWordIdDocumentId(object):
 
         self.__df_dict = self.__spark \
             .read \
-            .parquet(path_dict).repartition(numPartitions=1)
+            .parquet(path_dict) \
+            .repartition(numPartitions=num_partition) \
+            .rdd \
+            .persist(storageLevel=StorageLevel.MEMORY_ONLY) \
+            .toDF()
 
         self.__df_doc = self.__spark \
             .read \
-            .text(path).rdd.persist().toDF()
+            .text(path) \
+            .rdd \
+            .persist(storageLevel=StorageLevel.MEMORY_ONLY) \
+            .toDF()
 
         self.__df_wordid_docid = self.__spark \
             .read \
-            .parquet(path_index).rdd.persist(storageLevel=StorageLevel.DISK_ONLY).toDF()
+            .parquet(path_index) \
+            .rdd \
+            .persist(storageLevel=StorageLevel.DISK_ONLY) \
+            .toDF()
 
         self.__spark.sparkContext.setLogLevel("warn")
-        logging.warning(f"Working in the doc: {path}")
+        logging.warning(f"Start job in the doc: {path}")
 
     def __del__(self):
         self.__spark.stop()
@@ -104,9 +113,9 @@ class JobMapWordIdDocumentId(object):
     def generate_word_by_row(self, col_words: str):
         """
         Params:
-            :param column: a column in dataframe contains word list in each row
+            :param col_words: a column in df contains word list in each row
         Returns:
-            :return: dataframe with all words split by row
+            :return: df with all words split by row
         Samples:
             +-----------+
             |        col|
@@ -145,7 +154,7 @@ class JobMapWordIdDocumentId(object):
     def generate_wordid_docid(self, col_word_key: str):
         """
         follow documentation:
-         https://spark.apache.org/docs/latest/api/python/pyspark.html?highlight=flatmap
+        https://spark.apache.org/docs/latest/api/python/pyspark.html?highlight=flatmap
 
         Params:
             :param col_words: a column in df contains word list in each row
@@ -177,11 +186,11 @@ class JobMapWordIdDocumentId(object):
         Returns:
             :return: dataframe with column doc_id and column word_id
         Samples:
-            +------+-------+--------+
-            |doc_id|word_id|join_col|
-            +------+-------+--------+
-            |    27|      0|    0   |
-            |    27|      1|    0   |
+            +------+-------+
+            |doc_id|word_id|
+            +------+-------+
+            |    27|      0|
+            |    27|      1|
         """
         self.__df_doc = self.__df_doc \
             .withColumn(name_original_col,
@@ -195,10 +204,7 @@ class JobMapWordIdDocumentId(object):
             .withColumnRenamed('_1', new_name_doc) \
             .withColumnRenamed(name_original_col, new_name_key)
 
-
         print(self.__df_wordid_docid.count())
-
-
 
         # order column
         self.__df_wordid_docid = self.__df_wordid_docid.select('doc_id',
@@ -242,7 +248,8 @@ def main():
         JobMapWordIdDocumentId(path_files=PATH_DOCS,
                                file_name=doc,
                                path_dict=PATH_DICT,
-                               path_index=PATH_INDEX) \
+                               path_index=PATH_INDEX,
+                               num_partition=1) \
             .clean_data(column='value') \
             .generate_word_by_row(col_words='value') \
             .get_word_id(col_words='value',

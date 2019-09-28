@@ -1,6 +1,7 @@
 import configparser
 import logging
 import os
+import time
 from datetime import datetime
 
 from pyspark.sql import SparkSession
@@ -34,8 +35,8 @@ logging.basicConfig(filename=LOG_FILE,
                     format=format,
                     datefmt=date_format)
 
-start = datetime.now()
-end = datetime.now()
+start = time.time()
+end = time.time()
 logging.warning(f'Start job generate dict: {start}')
 
 
@@ -144,8 +145,7 @@ def main():
         .clean_data(column_words='value') \
         .generate_df_words(column_words='value') \
         .generate_dict(column_key='key', column_words='value') \
-        .storage_data(path_to_storage=PATH_DICT,
-                      mode='overwrite')
+        .storage_data(path_to_storage=PATH_DICT, mode='overwrite')
 
 
 if __name__ == '__main__':
