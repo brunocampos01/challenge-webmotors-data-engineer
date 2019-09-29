@@ -1,9 +1,10 @@
 import configparser
+import datetime
 import logging
 import os
-import time
 
 import pyspark
+from pyspark import SparkConf
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col
 from pyspark.sql.functions import explode
@@ -15,6 +16,7 @@ from pyspark.sql.types import StringType
 from pyspark.storagelevel import StorageLevel
 
 # config
+path_name_file = os.path.basename(__file__)
 path_directory = os.path.dirname(os.path.abspath(__file__))
 path_config = ''.join(path_directory + '/../configs/etl_config.ini')
 
@@ -37,9 +39,8 @@ logging.basicConfig(filename=LOG_FILE,
                     format=format,
                     datefmt=date_format)
 
-start = time.time()
-end = time.time()
-logging.warning(f'Start job: {start}')
+start_time = datetime.datetime.now()
+logging.warning(f'Start {path_name_file}: {start_time}')
 
 
 class JobMapWordIdDocumentId(object):
@@ -49,40 +50,56 @@ class JobMapWordIdDocumentId(object):
         path = ''.join(path_files + file_name)
         self.__file_name = file_name
 
+        conf = SparkConf()
+        conf.setAll([
+            ("spark.task.maxFailures", "10"),
+            ("spark.locality.wait", "200000000000000s"),
+            ("spark.serializer", "org.apache.spark.serializer.KryoSerializer"),
+            ('spark.executor.memory', '18g'),
+            ('spark.driver.memory', '10g'),
+            ('spark.executor.cores', '4'),
+            ('spark.executor.memory', '10g'),
+        ])
+
         self.__spark = SparkSession \
             .builder \
+            .config(conf=conf) \
             .getOrCreate()
 
         self.__df_dict = self.__spark \
             .read \
             .parquet(path_dict) \
-            .repartition(numPartitions=num_partition) \
-            .rdd \
-            .persist(storageLevel=StorageLevel.MEMORY_ONLY) \
-            .toDF()
+            .repartition(numPartitions=num_partition)
 
         self.__df_doc = self.__spark \
             .read \
-            .text(path) \
-            .rdd \
-            .persist(storageLevel=StorageLevel.MEMORY_ONLY) \
-            .toDF()
+            .text(path)
 
         self.__df_wordid_docid = self.__spark \
             .read \
             .parquet(path_index) \
             .rdd \
-            .persist(storageLevel=StorageLevel.DISK_ONLY) \
-            .toDF()
+            .unpersist() \
+            .repartition(numPartitions=300)
+
+
+        print(self.__df_wordid_docid.getStorageLevel())
+        print(self.__df_wordid_docid.getNumPartitions())
+        print(self.__spark.sparkContext.getConf().getAll())
+
+        self.__df_wordid_docid = self.__df_wordid_docid.toDF()
+
 
         self.__spark.sparkContext.setLogLevel("warn")
-        logging.warning(f"Start job in the doc: {path}")
+        logging.warning(f"Processing doc: {path}")
 
     def __del__(self):
+        self.__spark.catalog.clearCache()
         self.__spark.stop()
-        logging.warning(f'End job: {end}')
+        end_time = datetime.datetime.now()
+        logging.warning(f'Total {path_name_file}: {end_time - start_time}')
 
-    def clean_data(self, column: str):
+    def clean_data(self, list_words_col: str):
         """Pre processing data
         Processing executed in function:
         - Lower case
@@ -100,13 +117,14 @@ class JobMapWordIdDocumentId(object):
             +--------------------+
             |[over, in, one, n...|
         """
-        self.__df_doc = self.__df_doc.withColumn(column, lower(col(column))) \
-            .withColumn(column, regexp_replace(str=col(column),
-                                               pattern='[^a-z ]',
-                                               replacement='')) \
-            .withColumn(column, trim(col(column))) \
-            .filter(self.__df_doc[column] != "") \
-            .withColumn(column, split(column, ' '))
+        self.__df_doc = self.__df_doc \
+            .withColumn(list_words_col, lower(col(list_words_col))) \
+            .withColumn(list_words_col, regexp_replace(str=col(list_words_col),
+                                                       pattern='[^a-z ]',
+                                                       replacement='')) \
+            .withColumn(list_words_col, trim(col(list_words_col))) \
+            .filter(self.__df_doc[list_words_col] != "") \
+            .withColumn(list_words_col, split(list_words_col, ' '))
 
         return self
 
@@ -170,8 +188,8 @@ class JobMapWordIdDocumentId(object):
         """
         list_key_by_doc = self.__df_doc.select(col_word_key).collect()
 
-        doc_rdd = self.__spark\
-            .sparkContext\
+        doc_rdd = self.__spark \
+            .sparkContext \
             .parallelize([(self.__file_name, list_key_by_doc)])
 
         def f(doc_rdd): return doc_rdd
@@ -250,7 +268,7 @@ def main():
                                path_dict=PATH_DICT,
                                path_index=PATH_INDEX,
                                num_partition=1) \
-            .clean_data(column='value') \
+            .clean_data(list_words_col='value') \
             .generate_word_by_row(col_words='value') \
             .get_word_id(col_words='value',
                          join_operation='right',

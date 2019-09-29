@@ -1,8 +1,7 @@
 import configparser
 import logging
 import os
-import time
-from datetime import datetime
+import datetime
 
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col
@@ -14,6 +13,7 @@ from pyspark.sql.functions import trim
 from pyspark.sql.functions import udf
 
 # config
+path_name_file = os.path.basename(__file__)
 path_directory = os.path.dirname(os.path.abspath(__file__))
 path_config = ''.join(path_directory + '/../configs/etl_config.ini')
 
@@ -35,9 +35,8 @@ logging.basicConfig(filename=LOG_FILE,
                     format=format,
                     datefmt=date_format)
 
-start = time.time()
-end = time.time()
-logging.warning(f'Start job generate dict: {start}')
+start_time = datetime.datetime.now()
+logging.warning(f'Start {path_name_file}: {start_time}')
 
 
 class JobGenerateDict(object):
@@ -48,13 +47,14 @@ class JobGenerateDict(object):
             .getOrCreate()
 
         self.__spark.sparkContext.setLogLevel("WARN")
-
         self.__df = self.__spark.read.text(path_files)
 
     def __del__(self):
         self.__spark.stop()
-        logging.warning(f'End job generate dict: {end}')
-        logging.warning(50*'-')
+        end_time = datetime.datetime.now()
+        logging.warning(f'End   {path_name_file}: {end_time}')
+        logging.warning(f'Total {path_name_file}: {end_time-start_time}')
+        logging.warning(79*'-')
 
 
     def clean_data(self, column_words: str) -> 'DataFrame':

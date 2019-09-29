@@ -65,7 +65,8 @@ cd challenge-webmotors-data-engineer
  - [local](environment/README.md)
  - [virtual environment](environment/README.md)
 
-3. In terminal running command `spark-submit parte_lide_defere_gratuidade` and `spark-submit solution/jobs/job_map_wordid_documentid.py`
+3. In terminal running command `spark-submit solution/jobs/job_generate_dict.py
+` and `spark-submit solution/jobs/job_map_wordid_documentid.py`
 
 ##### NOTES
 - All the development was done using **virtualenv**. 
