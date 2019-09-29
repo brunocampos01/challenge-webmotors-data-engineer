@@ -1,7 +1,7 @@
 # Inverse Index
 
 ## Describe
-Challenge for Data Engineering at [webmotors](https://www.webmotors.com.br/).
+Challenge for Data Engineer at [webmotors](https://www.webmotors.com.br/).
 
 ### Requirements
 - java 1.8 openjdk<br/>
@@ -17,6 +17,7 @@ Challenge for Data Engineering at [webmotors](https://www.webmotors.com.br/).
 
 ## Structure This Project
 
+- I following [best pratices in Spark](https://www.slideshare.net/SparkSummit/pyspark-best-practices-by-juliet-hougland)
 ```
 .
 ├── dataset

@@ -13,7 +13,6 @@ from pyspark.sql.functions import regexp_replace
 from pyspark.sql.functions import split
 from pyspark.sql.functions import trim
 from pyspark.sql.types import StringType
-from pyspark.storagelevel import StorageLevel
 
 # config
 path_name_file = os.path.basename(__file__)
@@ -26,6 +25,8 @@ config.read(path_config)
 PATH_DOCS = config['DOC']['PATH_DOCS']
 PATH_DICT = config['DOC']['PATH_DICT']
 PATH_INDEX = config['DOC']['PATH_INDEX']
+
+SPARK_CONFIG = config['SPARK']['SPARK_CONFIG']
 
 LOG_FILE = config['LOG']['LOG_FILE']
 LOG_FILEMODE = config['LOG']['FILEMODE']
@@ -43,7 +44,7 @@ start_time = datetime.datetime.now()
 logging.warning(f'Start {path_name_file}: {start_time}')
 
 
-class JobMapWordIdDocumentId(object):
+class JobMapWordIdDocId(object):
 
     def __init__(self, path_files: str, path_index: str, path_dict:
                  str, file_name: str, num_partition: int):
@@ -51,14 +52,21 @@ class JobMapWordIdDocumentId(object):
         self.__file_name = file_name
 
         conf = SparkConf()
+        # Application Properties
+        # http://spark.apache.org/docs/latest/configuration.html#spark-properties
         conf.setAll([
-            ("spark.task.maxFailures", "10"),
-            ("spark.locality.wait", "200000000000000s"),
-            ("spark.serializer", "org.apache.spark.serializer.KryoSerializer"),
-            ('spark.executor.memory', '18g'),
-            ('spark.driver.memory', '10g'),
+            ('spark.app.name', 'Challenge Data Engineer'),
+            ('spark.driver.cores', '4'),
             ('spark.executor.cores', '4'),
+            ('spark.driver.maxResultSize', '10g'),
             ('spark.executor.memory', '10g'),
+            ('spark.executor.memoryOverhead	', '10g'),
+            ('spark.driver.memory', '10g'),
+            ('spark.local.dir', PATH_INDEX),
+            ('spark.driver.extraJavaOptions', '-Xmx1024m'),
+            ('spark.memory.offHeap.enabled', 'true'),
+            ('spark.memory.offHeap.size', '20g')
+
         ])
 
         self.__spark = SparkSession \
@@ -80,15 +88,14 @@ class JobMapWordIdDocumentId(object):
             .parquet(path_index) \
             .rdd \
             .unpersist() \
-            .repartition(numPartitions=300)
-
+            .repartition(numPartitions=1000)
 
         print(self.__df_wordid_docid.getStorageLevel())
         print(self.__df_wordid_docid.getNumPartitions())
         print(self.__spark.sparkContext.getConf().getAll())
+        self.__spark.sql("SET -v").show(n=200, truncate=False)
 
         self.__df_wordid_docid = self.__df_wordid_docid.toDF()
-
 
         self.__spark.sparkContext.setLogLevel("warn")
         logging.warning(f"Processing doc: {path}")
@@ -263,7 +270,7 @@ def main():
     list_docs = os.listdir(PATH_DOCS)
 
     for doc in list_docs:
-        JobMapWordIdDocumentId(path_files=PATH_DOCS,
+        JobMapWordIdDocId(path_files=PATH_DOCS,
                                file_name=doc,
                                path_dict=PATH_DICT,
                                path_index=PATH_INDEX,
@@ -277,7 +284,6 @@ def main():
             .prepare_df(name_original_col='_2',
                         new_name_doc='doc_id',
                         new_name_key='word_id') \
-            .append_df() \
             .storage_data(path_to_storage=PATH_INDEX,
                           mode='append')
 
